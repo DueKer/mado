@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #165DFF;
+  --primary-hover: #1250D6;
+  --success: #36D399;
+  --warning: #FBBD23;
+  --error: #F87272;
+  --white: #FFFFFF;
+  --bg-light: #F5F7FA;
+  --border: #E5E6EB;
+  --text-muted: #86909C;
+  --text-dark: #1D2129;
+  --free-red: #FF4D4F;
+}
+
+@theme inline {
+  --color-background: var(--white);
+  --color-foreground: var(--text-dark);
+  --font-sans: 'Inter', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #FFFFFF;
+  color: #1D2129;
+  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E5E6EB;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C4C7CC;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid #165DFF;
+  outline-offset: 2px;
+}
+
+/* Animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* CodeMirror overrides */
+.cm-editor {
+  font-size: 13px !important;
+}
+
+.cm-editor .cm-scroller {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+}

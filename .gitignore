@@ -1,0 +1,56 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files - do NOT commit real .env files with secrets
+.env
+.env.local
+.env.*.local
+
+# npm config may contain tokens
+.npmrc
+.npm-cache/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# reference folder - embedded external repos (don't track their internal .git)
+reference/
+
+# database
+data/*.db
+data/*.db-journal
+
+# logs
+*.log
+logs/
