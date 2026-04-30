@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { AgentId } from '@/types';
+import { readAITextStream } from '@/lib/ai-stream';
 
 export interface ConversationMessage {
   id: string;
@@ -16,7 +17,7 @@ export interface ConversationMessage {
 }
 
 export interface CompressionConfig {
-  maxTokens?: number;       // 最大 token 预算（默认 GPT-4o 128k 的一半）
+  maxTokens?: number;       // 最大 token 预算
   summaryThreshold?: number; // 超过此 token 数开始压缩
   keepRecent?: number;       // 保留最近 N 条完整消息
   summaryModel?: 'gpt' | 'claude'; // 用于摘要的模型
@@ -318,27 +319,7 @@ export async function generateSummary(
     }
     if (!response.body) throw new Error('No response body');
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let summary = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-      for (const line of lines) {
-        if (!line.startsWith('0:')) continue;
-        try {
-          const b64 = line.slice(2);
-          const jsonStr = atob(b64);
-          const part = JSON.parse(jsonStr);
-          if (part.type === 'text-delta' && part.textDelta) {
-            summary += part.textDelta;
-          }
-        } catch {}
-      }
-    }
+    const summary = await readAITextStream(response.body);
 
     return summary.trim() || '对话摘要生成失败';
   } catch {

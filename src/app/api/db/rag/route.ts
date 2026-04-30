@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db/client';
+import { initializeDatabase } from '@/lib/db/init';
 import { ragDocuments, documentChunks } from '@/lib/db/schema';
 import type { RagDocUpdate } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -12,6 +13,7 @@ import { eq, desc } from 'drizzle-orm';
 // GET /api/db/rag - 获取所有知识库文档
 export async function GET() {
   try {
+    await initializeDatabase();
     const db = getDb();
     const docs = await db.select().from(ragDocuments).orderBy(desc(ragDocuments.uploadTime));
 
@@ -31,6 +33,7 @@ export async function GET() {
 // POST /api/db/rag - 添加知识库文档
 export async function POST(request: NextRequest) {
   try {
+    await initializeDatabase();
     const body = await request.json();
     const db = getDb();
 
@@ -68,6 +71,7 @@ export async function POST(request: NextRequest) {
 // DELETE /api/db/rag?id=xxx - 删除文档
 export async function DELETE(request: NextRequest) {
   try {
+    await initializeDatabase();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -89,6 +93,7 @@ export async function DELETE(request: NextRequest) {
 // PATCH /api/db/rag - 更新文档
 export async function PATCH(request: NextRequest) {
   try {
+    await initializeDatabase();
     const body = await request.json();
     const db = getDb();
 

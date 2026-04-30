@@ -70,9 +70,9 @@ const defaultAgentConfigs: Record<string, { enabled: boolean; timeout: number }>
 };
 
 const defaultConfig: AppConfig = {
-  apiKeys: { openai: '', anthropic: '' },
+  apiKeys: { openai: '', anthropic: '', groq: '', siliconflow: '' },
   baseUrl: undefined,
-  gptModel: 'gpt-4o',
+  gptModel: 'gpt-5.4-mini',
   claudeModel: 'claude-sonnet-4-20250514',
   modelMode: 'gpt-only',
   temperature: 0.1,
@@ -96,13 +96,13 @@ export function useAppConfig() {
           Promise.resolve(localStorage.getItem(STORAGE_KEYS.config)),
         ]);
 
-        let envApiKeys = { openai: '', anthropic: '' };
+        let envApiKeys = { openai: '', anthropic: '', groq: '', siliconflow: '' };
         let envBaseUrl: string | undefined;
         let envGptModel: string | undefined;
         let envClaudeModel: string | undefined;
         if (dbRes.ok) {
           const dbConfig = await dbRes.json();
-          envApiKeys = dbConfig.apiKeys ?? { openai: '', anthropic: '' };
+          envApiKeys = dbConfig.apiKeys ?? { openai: '', anthropic: '', groq: '', siliconflow: '' };
           envBaseUrl = dbConfig.baseUrl;
           envGptModel = dbConfig.gptModel;
           envClaudeModel = dbConfig.claudeModel;
@@ -116,9 +116,11 @@ export function useAppConfig() {
             apiKeys: {
               openai: parsed.apiKeys?.openai ? decodeSecret(parsed.apiKeys.openai) : envApiKeys.openai,
               anthropic: parsed.apiKeys?.anthropic ? decodeSecret(parsed.apiKeys.anthropic) : envApiKeys.anthropic,
+              groq: parsed.apiKeys?.groq ? decodeSecret(parsed.apiKeys.groq) : envApiKeys.groq,
+              siliconflow: parsed.apiKeys?.siliconflow ? decodeSecret(parsed.apiKeys.siliconflow) : envApiKeys.siliconflow,
             },
             baseUrl: parsed.baseUrl ?? envBaseUrl,
-            gptModel: parsed.gptModel ?? envGptModel ?? 'gpt-4o',
+            gptModel: parsed.gptModel ?? envGptModel ?? 'gpt-5.4-mini',
             claudeModel: parsed.claudeModel ?? envClaudeModel ?? 'claude-sonnet-4-20250514',
           });
         } else {
@@ -127,7 +129,7 @@ export function useAppConfig() {
             ...prev,
             apiKeys: envApiKeys,
             baseUrl: envBaseUrl,
-            gptModel: envGptModel ?? 'gpt-4o',
+            gptModel: envGptModel ?? 'gpt-5.4-mini',
             claudeModel: envClaudeModel ?? 'claude-sonnet-4-20250514',
           }));
           // 同时写入 localStorage（加密后）
@@ -136,9 +138,11 @@ export function useAppConfig() {
             apiKeys: {
               openai: envApiKeys.openai ? encodeSecret(envApiKeys.openai) : '',
               anthropic: envApiKeys.anthropic ? encodeSecret(envApiKeys.anthropic) : '',
+              groq: envApiKeys.groq ? encodeSecret(envApiKeys.groq) : '',
+              siliconflow: envApiKeys.siliconflow ? encodeSecret(envApiKeys.siliconflow) : '',
             },
             baseUrl: envBaseUrl,
-            gptModel: envGptModel ?? 'gpt-4o',
+            gptModel: envGptModel ?? 'gpt-5.4-mini',
             claudeModel: envClaudeModel ?? 'claude-sonnet-4-20250514',
           };
           localStorage.setItem(STORAGE_KEYS.config, JSON.stringify(toSave));
@@ -158,10 +162,17 @@ export function useAppConfig() {
           apiKeys: {
             openai: next.apiKeys.openai ? encodeSecret(next.apiKeys.openai) : '',
             anthropic: next.apiKeys.anthropic ? encodeSecret(next.apiKeys.anthropic) : '',
+            groq: next.apiKeys.groq ? encodeSecret(next.apiKeys.groq) : '',
+            siliconflow: next.apiKeys.siliconflow ? encodeSecret(next.apiKeys.siliconflow) : '',
           },
         };
         localStorage.setItem(STORAGE_KEYS.config, JSON.stringify(toSave));
       } catch {}
+      fetch('/api/db/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      }).catch(() => {});
       return next;
     });
   }, []);
@@ -186,15 +197,22 @@ export function useAppConfig() {
           apiKeys: {
             openai: next.apiKeys.openai ? encodeSecret(next.apiKeys.openai) : '',
             anthropic: next.apiKeys.anthropic ? encodeSecret(next.apiKeys.anthropic) : '',
+            groq: next.apiKeys.groq ? encodeSecret(next.apiKeys.groq) : '',
+            siliconflow: next.apiKeys.siliconflow ? encodeSecret(next.apiKeys.siliconflow) : '',
           },
         };
         localStorage.setItem(STORAGE_KEYS.config, JSON.stringify(toSave));
       } catch {}
+      fetch('/api/db/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      }).catch(() => {});
       return next;
     });
   }, []);
 
-  const hasApiKeys = config.apiKeys.openai.trim() !== '' || config.apiKeys.anthropic.trim() !== '' || config.apiKeys.groq?.trim() !== '';
+  const hasApiKeys = config.apiKeys.openai.trim() !== '' || config.apiKeys.anthropic.trim() !== '' || config.apiKeys.groq?.trim() !== '' || config.apiKeys.siliconflow?.trim() !== '';
 
   const getEnabledAgents = useCallback((): Set<AgentId> => {
     const enabled = new Set<AgentId>();
@@ -348,48 +366,31 @@ export function useHistory() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(tasks.slice(0, 100)));
+    } catch {}
+  }, [tasks, isLoaded]);
+
   const addTask = useCallback((task: Task) => {
-    setTasks(prev => {
-      const next = [task, ...prev].slice(0, 100); // 最多保留100条
-      try {
-        localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(next));
-      } catch {}
-      syncTaskToDB(task);
-      return next;
-    });
+    setTasks(prev => [task, ...prev].slice(0, 100));
+    syncTaskToDB(task);
   }, []);
 
   const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
-    setTasks(prev => {
-      const next = prev.map(t => t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t);
-      try {
-        localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(next));
-      } catch {}
-      updateTaskInDB(taskId, updates);
-      return next;
-    });
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t));
+    updateTaskInDB(taskId, updates);
   }, []);
 
   const removeTask = useCallback((taskId: string) => {
-    setTasks(prev => {
-      const next = prev.filter(t => t.id !== taskId);
-      try {
-        localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(next));
-      } catch {}
-      deleteTaskInDB(taskId);
-      return next;
-    });
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    deleteTaskInDB(taskId);
   }, []);
 
   const removeTasks = useCallback((taskIds: string[]) => {
-    setTasks(prev => {
-      const next = prev.filter(t => !taskIds.includes(t.id));
-      try {
-        localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(next));
-      } catch {}
-      taskIds.forEach(id => deleteTaskInDB(id));
-      return next;
-    });
+    setTasks(prev => prev.filter(t => !taskIds.includes(t.id)));
+    taskIds.forEach(id => deleteTaskInDB(id));
   }, []);
 
   const clearAll = useCallback(() => {

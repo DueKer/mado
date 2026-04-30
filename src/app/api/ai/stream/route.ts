@@ -8,6 +8,10 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, type CoreMessage } from 'ai';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/lib/db/client';
+import { initializeDatabase } from '@/lib/db/init';
+import { appConfigs } from '@/lib/db/schema';
 
 // -------------------- 请求体类型 --------------------
 
@@ -22,11 +26,52 @@ interface AIStreamRequest {
   baseUrl?: string;
 }
 
+const CONFIG_ID = 'default';
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+async function readStoredConfig() {
+  await initializeDatabase();
+  const db = getDb();
+  const rows = await db.select().from(appConfigs).where(eq(appConfigs.id, CONFIG_ID)).limit(1);
+  return rows[0];
+}
+
+function normalizeOpenAIBaseURL(baseUrl: string | undefined) {
+  if (!baseUrl) return undefined;
+
+  const trimmed = baseUrl.trim().replace(/\/+$/, '');
+  try {
+    const url = new URL(trimmed);
+    if (url.pathname === '' || url.pathname === '/') {
+      return `${url.origin}/v1`;
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed;
+}
+
+function normalizeOpenAIModelName(modelName: string | undefined) {
+  if (!modelName || ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'].includes(modelName)) {
+    return 'gpt-5.4-mini';
+  }
+
+  return modelName;
+}
+
 // -------------------- 模型工厂（在 handler 内创建，确保 env 已注入） --------------------
 
 function createModel(provider: Provider, modelName?: string, apiKey?: string, baseUrl?: string) {
   if (provider === 'openai') {
-    return createOpenAI({ apiKey: apiKey ?? process.env.OPENAI_API_KEY })(modelName ?? 'gpt-4o');
+    return createOpenAI({
+      apiKey: apiKey ?? process.env.OPENAI_API_KEY,
+      baseURL: normalizeOpenAIBaseURL(baseUrl || process.env.OPENAI_BASE_URL),
+    })(normalizeOpenAIModelName(modelName));
   } else if (provider === 'anthropic') {
     return createAnthropic({ apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY })(modelName ?? 'claude-sonnet-4-20250514');
   } else if (provider === 'groq') {
@@ -48,6 +93,7 @@ function createModel(provider: Provider, modelName?: string, apiKey?: string, ba
 export async function POST(request: Request) {
   try {
     const body: AIStreamRequest = await request.json();
+    const storedConfig = await readStoredConfig();
 
     const {
       provider,
@@ -55,17 +101,19 @@ export async function POST(request: Request) {
       model,
       temperature = 0.1,
       maxTokens = 4096,
-      baseUrl,
+      baseUrl: requestBaseUrl,
     } = body;
 
     // 从环境变量获取 API Key（服务端安全读取）
     const apiKeyMap: Record<Provider, string | undefined> = {
-      openai: process.env.OPENAI_API_KEY,
-      anthropic: process.env.ANTHROPIC_API_KEY,
-      groq: process.env.GROQ_API_KEY,
-      siliconflow: process.env.SILICONFLOW_API_KEY,
+      openai: storedConfig?.apiKeysOpenai || process.env.OPENAI_API_KEY,
+      anthropic: storedConfig?.apiKeysAnthropic || process.env.ANTHROPIC_API_KEY,
+      groq: storedConfig?.apiKeysGroq || process.env.GROQ_API_KEY,
+      siliconflow: storedConfig?.apiKeysSiliconflow || process.env.SILICONFLOW_API_KEY,
     };
     const apiKey = apiKeyMap[provider];
+    // OpenAI provider: 优先使用请求中的 baseUrl > 数据库配置 > 环境变量
+    const baseUrl = requestBaseUrl || (provider === 'openai' ? storedConfig?.baseUrl || process.env.OPENAI_BASE_URL || undefined : undefined);
 
     if (!apiKey) {
       const keyName = provider === 'openai' ? 'OPENAI_API_KEY' : provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'groq' ? 'GROQ_API_KEY' : 'SILICONFLOW_API_KEY';
@@ -95,12 +143,18 @@ export async function POST(request: Request) {
       maxTokens,
     });
 
-    return result.toDataStreamResponse();
+    return result.toDataStreamResponse({
+      getErrorMessage: (error) => {
+        const message = getErrorMessage(error);
+        console.error('[AI Stream Error]', message);
+        return message;
+      },
+    });
 
   } catch (error) {
     console.error('[AI Stream API Error]', error);
 
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = getErrorMessage(error);
 
     return new Response(
       JSON.stringify({ error: `AI 服务调用失败: ${message}` }),
@@ -121,7 +175,7 @@ export async function GET() {
       version: '1.0.0',
       providers: ['openai', 'anthropic', 'groq', 'siliconflow'],
       models: {
-        openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+        openai: ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'gpt-5.3-codex'],
         anthropic: ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
         groq: ['llama-4-scout-17b-16e-instruct', 'llama-4-maverick-17b-128e-instruct', 'qwen-3.5-32b'],
         siliconflow: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5', 'THUDM/glm-4-9b-chat'],

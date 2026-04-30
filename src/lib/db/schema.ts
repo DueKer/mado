@@ -8,7 +8,7 @@ import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 export type TaskUpdate = Partial<Pick<typeof tasks.$inferSelect, 'name' | 'executions' | 'status' | 'result' | 'updatedAt'>>;
 export type TaskInsert = typeof tasks.$inferInsert;
 export type RagDocUpdate = Partial<Pick<typeof ragDocuments.$inferSelect, 'name' | 'content' | 'slices'>>;
-export type AppConfigUpdate = Partial<Pick<typeof appConfigs.$inferSelect, 'apiKeysOpenai' | 'apiKeysAnthropic' | 'baseUrl' | 'gptModel' | 'claudeModel' | 'modelMode' | 'temperature' | 'maxTokens' | 'timeout' | 'agentConfigs' | 'updatedAt'>>;
+export type AppConfigUpdate = Partial<Pick<typeof appConfigs.$inferSelect, 'apiKeysOpenai' | 'apiKeysAnthropic' | 'apiKeysGroq' | 'apiKeysSiliconflow' | 'baseUrl' | 'gptModel' | 'claudeModel' | 'modelMode' | 'temperature' | 'maxTokens' | 'timeout' | 'agentConfigs' | 'updatedAt'>>;
 
 // -------------------- Tasks --------------------
 
@@ -73,6 +73,8 @@ export const appConfigs = sqliteTable('app_configs', {
   id: text('id').primaryKey(), // always 'default'
   apiKeysOpenai: text('api_keys_openai').notNull().default(''),
   apiKeysAnthropic: text('api_keys_anthropic').notNull().default(''),
+  apiKeysGroq: text('api_keys_groq').notNull().default(''),
+  apiKeysSiliconflow: text('api_keys_siliconflow').notNull().default(''),
   baseUrl: text('base_url'), // optional custom API base URL
   gptModel: text('gpt_model'), // optional custom GPT model name
   claudeModel: text('claude_model'), // optional custom Claude model name

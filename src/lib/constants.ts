@@ -43,7 +43,7 @@ export const GPT_PROVIDER_OPTIONS = [
   {
     id: 'openai' as const,
     name: 'OpenAI',
-    modelPlaceholder: 'gpt-4o',
+    modelPlaceholder: 'gpt-5.4-mini',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
   },
   {
