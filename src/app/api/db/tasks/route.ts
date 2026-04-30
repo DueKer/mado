@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db/client';
+import { initializeDatabase } from '@/lib/db/init';
 import { tasks } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
@@ -14,6 +15,7 @@ type TaskInsert = typeof tasks.$inferInsert;
 // GET /api/db/tasks - 获取所有任务
 export async function GET(request: NextRequest) {
   try {
+    await initializeDatabase();
     const db = getDb();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') ?? '50');
@@ -59,6 +61,7 @@ export async function GET(request: NextRequest) {
 // POST /api/db/tasks - 创建任务
 export async function POST(request: NextRequest) {
   try {
+    await initializeDatabase();
     const body = await request.json();
     const db = getDb();
 
@@ -73,7 +76,11 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(body.createdAt),
     };
 
-    await db.insert(tasks).values(insertData);
+    await db.insert(tasks).values(insertData).onConflictDoUpdate({
+      target: tasks.id,
+      set: insertData,
+    });
+
     return NextResponse.json({ ok: true, id: body.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -84,6 +91,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/db/tasks - 更新任务
 export async function PATCH(request: NextRequest) {
   try {
+    await initializeDatabase();
     const body = await request.json();
     const db = getDb();
 
@@ -108,6 +116,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/db/tasks?id=xxx - 删除任务
 export async function DELETE(request: NextRequest) {
   try {
+    await initializeDatabase();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

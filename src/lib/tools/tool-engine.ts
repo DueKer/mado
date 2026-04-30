@@ -5,6 +5,7 @@
 
 import type { ToolCall, ToolResult } from './tool-schema';
 import { executeTools } from './builtin-tools';
+import { readAITextStream } from '@/lib/ai-stream';
 
 // -------------------- 解析 Tool Calls --------------------
 
@@ -245,30 +246,7 @@ async function continueWithResults(
       throw new Error(msg);
     }
     if (!response.body) throw new Error('No response body');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-      for (const line of lines) {
-        if (!line.startsWith('0:')) continue;
-        try {
-          const b64 = line.slice(2);
-          const jsonStr = atob(b64);
-          const part = JSON.parse(jsonStr);
-          if (part.type === 'text-delta' && part.textDelta) {
-            fullText += part.textDelta;
-          }
-        } catch {}
-      }
-    }
-
-    return fullText;
+    return readAITextStream(response.body);
   } catch (e) {
     return `\n[工具执行后无法继续生成: ${e instanceof Error ? e.message : String(e)}]`;
   }

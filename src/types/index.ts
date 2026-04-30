@@ -37,10 +37,11 @@ export interface AppConfig {
     openai: string;
     anthropic: string;
     groq?: string;
+    siliconflow?: string;
   };
   /** 自定义 OpenAI 兼容 API 地址，如 https://www.msutools.cn/v1 */
   baseUrl?: string;
-  /** 自定义 GPT 模型名，如 gpt-5.4 */
+  /** 自定义 GPT 模型名，如 gpt-5.4-mini */
   gptModel?: string;
   /** 自定义 Claude 模型名 */
   claudeModel?: string;

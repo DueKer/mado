@@ -22,10 +22,14 @@ interface ApiConfigDialogProps {
 export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfigDialogProps) {
   const [openai, setOpenai] = React.useState(config.apiKeys.openai);
   const [anthropic, setAnthropic] = React.useState(config.apiKeys.anthropic);
+  const [groq, setGroq] = React.useState(config.apiKeys.groq ?? '');
+  const [siliconflow, setSiliconflow] = React.useState(config.apiKeys.siliconflow ?? '');
   const [baseUrl, setBaseUrl] = React.useState(config.baseUrl ?? '');
   const [gptModel, setGptModel] = React.useState(config.gptModel ?? '');
   const [showOpenAI, setShowOpenAI] = React.useState(false);
   const [showClaude, setShowClaude] = React.useState(false);
+  const [showGroq, setShowGroq] = React.useState(false);
+  const [showSiliconflow, setShowSiliconflow] = React.useState(false);
   const [temperature, setTemperature] = React.useState(config.temperature);
   const [maxTokens, setMaxTokens] = React.useState(config.maxTokens);
   const [timeout, setTimeout] = React.useState(config.timeout);
@@ -34,6 +38,8 @@ export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfi
   React.useEffect(() => {
     setOpenai(config.apiKeys.openai);
     setAnthropic(config.apiKeys.anthropic);
+    setGroq(config.apiKeys.groq ?? '');
+    setSiliconflow(config.apiKeys.siliconflow ?? '');
     setBaseUrl(config.baseUrl ?? '');
     setGptModel(config.gptModel ?? '');
     setTemperature(config.temperature);
@@ -43,7 +49,7 @@ export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfi
 
   const handleSave = () => {
     onSave({
-      apiKeys: { openai, anthropic },
+      apiKeys: { openai, anthropic, groq, siliconflow },
       baseUrl: baseUrl || undefined,
       gptModel: gptModel || undefined,
       temperature,
@@ -56,13 +62,15 @@ export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfi
   const handleReset = () => {
     setOpenai('');
     setAnthropic('');
+    setGroq('');
+    setSiliconflow('');
     setBaseUrl('');
     setGptModel('');
     setTemperature(0.1);
     setMaxTokens(4096);
     setTimeout(30);
     onSave({
-      apiKeys: { openai: '', anthropic: '' },
+      apiKeys: { openai: '', anthropic: '', groq: '', siliconflow: '' },
       baseUrl: undefined,
       gptModel: undefined,
       temperature: 0.1,
@@ -124,6 +132,50 @@ export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfi
             </div>
           </div>
 
+          {/* Groq */}
+          <div>
+            <label className="text-sm font-medium text-[#1D2129] mb-1.5 block">
+              Groq API Key <span className="text-[#FF4D4F] text-xs font-normal">（免费高速，OpenAI Key 为空时自动使用）</span>
+            </label>
+            <div className="relative">
+              <Input
+                type={showGroq ? 'text' : 'password'}
+                value={groq}
+                onChange={e => setGroq(e.target.value)}
+                placeholder="gsk_..."
+                className="pr-10"
+              />
+              <button
+                onClick={() => setShowGroq(!showGroq)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86909C] hover:text-[#1D2129]"
+              >
+                {showGroq ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* SiliconFlow */}
+          <div>
+            <label className="text-sm font-medium text-[#1D2129] mb-1.5 block">
+              SiliconFlow API Key <span className="text-[#FF4D4F] text-xs font-normal">（国内可用，OpenAI Key 不可用时自动使用）</span>
+            </label>
+            <div className="relative">
+              <Input
+                type={showSiliconflow ? 'text' : 'password'}
+                value={siliconflow}
+                onChange={e => setSiliconflow(e.target.value)}
+                placeholder="sk-..."
+                className="pr-10"
+              />
+              <button
+                onClick={() => setShowSiliconflow(!showSiliconflow)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86909C] hover:text-[#1D2129]"
+              >
+                {showSiliconflow ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
           {/* Base URL */}
           <div>
             <label className="text-sm font-medium text-[#1D2129] mb-1.5 block">
@@ -147,7 +199,7 @@ export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfi
             <Input
               value={gptModel}
               onChange={e => setGptModel(e.target.value)}
-              placeholder="gpt-5.4（留空则使用默认 gpt-4o）"
+              placeholder="gpt-5.4-mini（留空则使用默认 gpt-5.4-mini）"
               className="text-xs"
             />
             <p className="text-xs text-[#86909C] mt-1">指定中转代理支持的模型名称</p>
