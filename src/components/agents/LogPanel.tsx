@@ -2,8 +2,6 @@
 
 import * as React from 'react';
 import { ChevronUp, ChevronDown, Copy, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import type { AgentId } from '@/types';
 
 interface ExecutionLog {
@@ -18,9 +16,10 @@ interface LogPanelProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   agentNames: Record<AgentId, string>;
+  variant?: 'panel' | 'dialog';
 }
 
-export function LogPanel({ logs, streamBuffer, collapsed, onToggleCollapse, agentNames }: LogPanelProps) {
+export function LogPanel({ logs, streamBuffer, collapsed, onToggleCollapse, agentNames, variant = 'panel' }: LogPanelProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [copied, setCopied] = React.useState(false);
 
@@ -38,7 +37,7 @@ export function LogPanel({ logs, streamBuffer, collapsed, onToggleCollapse, agen
     });
   };
 
-  if (collapsed) {
+  if (collapsed && variant === 'panel') {
     return (
       <div className="h-[50px] bg-white border-t border-[#E5E6EB] flex items-center justify-center px-4">
         <button
@@ -52,8 +51,8 @@ export function LogPanel({ logs, streamBuffer, collapsed, onToggleCollapse, agen
     );
   }
 
-  return (
-    <div className="h-[300px] bg-white border-t border-[#E5E6EB] flex flex-col flex-shrink-0">
+  const content = (
+    <>
       {/* Header */}
       <div className="h-10 px-4 flex items-center justify-between border-b border-[#E5E6EB] flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -70,12 +69,14 @@ export function LogPanel({ logs, streamBuffer, collapsed, onToggleCollapse, agen
             {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
             <span>{copied ? '已复制' : '复制'}</span>
           </button>
-          <button
-            onClick={onToggleCollapse}
-            className="text-[#64748B] hover:text-[#165DFF] transition-colors"
-          >
-            <ChevronDown className="w-4 h-4" />
-          </button>
+          {variant === 'panel' && (
+            <button
+              onClick={onToggleCollapse}
+              className="text-[#64748B] hover:text-[#165DFF] transition-colors"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -98,6 +99,20 @@ export function LogPanel({ logs, streamBuffer, collapsed, onToggleCollapse, agen
           </div>
         )}
       </div>
+    </>
+  );
+
+  if (variant === 'dialog') {
+    return (
+      <div className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-lg border border-[#E5E6EB] bg-white">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[300px] bg-white border-t border-[#E5E6EB] flex flex-col flex-shrink-0">
+      {content}
     </div>
   );
 }

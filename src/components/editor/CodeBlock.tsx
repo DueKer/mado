@@ -5,7 +5,12 @@ import CodeMirror, { basicSetup } from '@uiw/react-codemirror';
 import { EditorView } from '@codemirror/view';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { javascript } from '@codemirror/lang-javascript';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { json } from '@codemirror/lang-json';
+import { vue } from '@codemirror/lang-vue';
+import { Copy, Check, ChevronDown, ChevronUp, WrapText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CodeBlockProps {
@@ -83,9 +88,12 @@ export function CodeBlock({
 }: CodeBlockProps) {
   const [copied, setCopied] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
+  const [lineWrapping, setLineWrapping] = React.useState(false);
+  const normalizedLanguage = normalizeLanguage(language, filename);
+  const normalizedCode = React.useMemo(() => normalizeCodeForDisplay(code), [code]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(code).then(() => {
+    navigator.clipboard.writeText(normalizedCode).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -102,10 +110,20 @@ export function CodeBlock({
             <span className="text-xs text-[#86909C]">{title}</span>
           )}
           <span className="text-xs text-[#86909C] bg-[#E5E6EB] px-1.5 py-0.5 rounded">
-            {language}
+            {normalizedLanguage}
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setLineWrapping(!lineWrapping)}
+            className={cn(
+              'text-[#86909C] hover:text-[#165DFF] p-1 transition-colors',
+              lineWrapping && 'text-[#165DFF]'
+            )}
+            title={lineWrapping ? '关闭自动换行' : '开启自动换行'}
+          >
+            <WrapText className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="text-[#86909C] hover:text-[#1D2129] p-1 transition-colors"
@@ -127,20 +145,126 @@ export function CodeBlock({
           className={cn('overflow-auto', dark ? 'bg-[#1a1b26]' : 'bg-white')}
         >
           <CodeMirror
-            value={code}
+            value={normalizedCode}
             height="auto"
             extensions={[
               basicSetup({ lineNumbers: showLineNumbers }),
+              getLanguageExtension(normalizedLanguage),
               tsHighlight,
               dark ? plainDarkTheme : plainTheme,
+              lineWrapping ? EditorView.lineWrapping : [],
             ]}
             theme={undefined}
             editable={false}
             basicSetup={false}
-            className={cn('text-sm [&_.cm-editor]:!bg-transparent [&_.cm-editor]:!p-0', dark ? 'dark' : '')}
+            className={cn(
+              'text-sm [&_.cm-editor]:!bg-transparent [&_.cm-editor]:!p-0',
+              '[&_.cm-content]:!py-3 [&_.cm-line]:!px-3 [&_.cm-scroller]:min-h-[220px]',
+              dark ? 'dark' : ''
+            )}
           />
         </div>
       )}
     </div>
   );
+}
+
+export function normalizeCodeForDisplay(code: string): string {
+  let value = code.trim();
+
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      value = value.slice(1, -1);
+    }
+  }
+
+  if (value.includes('\\n') || value.includes('\\"') || value.includes('\\t')) {
+    value = value
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'");
+  }
+
+  return value.trim();
+}
+
+export function inferLanguageFromFilename(filename?: string): string {
+  const ext = filename?.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'tsx':
+      return 'tsx';
+    case 'ts':
+      return 'typescript';
+    case 'jsx':
+      return 'jsx';
+    case 'js':
+    case 'mjs':
+    case 'cjs':
+      return 'javascript';
+    case 'vue':
+      return 'vue';
+    case 'html':
+    case 'htm':
+      return 'html';
+    case 'css':
+      return 'css';
+    case 'scss':
+    case 'sass':
+      return 'scss';
+    case 'less':
+      return 'less';
+    case 'json':
+      return 'json';
+    case 'md':
+    case 'mdx':
+      return 'markdown';
+    case 'sh':
+    case 'bash':
+      return 'bash';
+    default:
+      return 'text';
+  }
+}
+
+function normalizeLanguage(language?: string, filename?: string): string {
+  const fromFilename = inferLanguageFromFilename(filename);
+  const value = (fromFilename !== 'text' ? fromFilename : language || 'text').toLowerCase();
+
+  if (value === 'ts') return 'typescript';
+  if (value === 'js') return 'javascript';
+  if (value === 'tsx' || value === 'jsx') return value;
+  if (value === 'shell') return 'bash';
+  return value;
+}
+
+function getLanguageExtension(language: string) {
+  switch (language) {
+    case 'typescript':
+      return javascript({ typescript: true });
+    case 'tsx':
+      return javascript({ typescript: true, jsx: true });
+    case 'javascript':
+      return javascript();
+    case 'jsx':
+      return javascript({ jsx: true });
+    case 'html':
+      return html();
+    case 'css':
+    case 'scss':
+    case 'less':
+      return css();
+    case 'json':
+      return json();
+    case 'vue':
+      return vue();
+    default:
+      return [];
+  }
 }

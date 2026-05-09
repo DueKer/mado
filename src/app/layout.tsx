@@ -23,7 +23,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="h-screen overflow-hidden bg-white">
+      <body className="min-h-screen bg-white">
         <ToastProvider>
           <DBInitProvider>
             {children}

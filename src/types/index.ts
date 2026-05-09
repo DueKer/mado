@@ -16,6 +16,7 @@ export type AgentStatus = 'idle' | 'running' | 'completed' | 'failed';
 
 export type ModelType = 'dual' | 'gpt-only' | 'claude-only';
 export type AgentModelType = 'gpt' | 'claude' | 'dual';
+export type TechStack = 'auto' | 'react-ts' | 'vue' | 'html-css-js';
 
 export interface AgentConfig {
   id: AgentId;
@@ -69,6 +70,7 @@ export interface AgentExecution {
 export interface TaskInput {
   requirement: string;
   files?: FileUpload[];
+  techStack?: TechStack;
 }
 
 export interface FileUpload {

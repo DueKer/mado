@@ -3,13 +3,13 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  History, Trash2, RotateCcw, Copy, CheckCircle, XCircle, AlertTriangle, Eye,
+  Trash2, RotateCcw, Copy, CheckCircle, XCircle, AlertTriangle, Eye,
   FileText, Loader2, Search, X
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { CodeBlock } from '@/components/editor/CodeBlock';
+import { DeliveryCodeViewer } from '@/components/editor/DeliveryCodeViewer';
 import { useAppConfig, useHistory } from '@/hooks/useStore';
 import { useToast } from '@/components/ui/toast';
 import { cn, formatTime } from '@/lib/utils';
@@ -299,15 +299,7 @@ export default function HistoryTaskPage() {
             {selectedTask?.result && Object.keys(selectedTask.result.code).length > 0 && (
               <div>
                 <p className="text-sm font-medium text-[#1D2129] mb-2">交付代码</p>
-                {Object.entries(selectedTask.result.code).map(([filename, code]) => (
-                  <CodeBlock
-                    key={filename}
-                    code={code}
-                    filename={filename}
-                    language={filename.endsWith('.tsx') ? 'tsx' : 'typescript'}
-                    maxHeight="300px"
-                  />
-                ))}
+                <DeliveryCodeViewer files={selectedTask.result.code} maxHeight="420px" />
               </div>
             )}
           </DialogBody>

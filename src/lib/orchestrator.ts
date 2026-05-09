@@ -6,7 +6,6 @@
 
 import type {
   AgentId,
-  AgentExecution,
   TaskInput,
   DeliveryResult,
   RagDocument,
@@ -117,6 +116,7 @@ async function executeAgent(
     ragResults: enhancedResults,
     previousAgentOutput: previousOutput,
     agentConfig: { temperature, maxTokens },
+    techStack: input.techStack,
   }, tools);
 
   // 上下文压缩（如果启用）
@@ -437,9 +437,9 @@ interface DeliveryResultJSON {
 
 function parseDeliveryResult(text: string): DeliveryResult {
   const jsonResult = tryParseJSON(text);
-  if (jsonResult) return jsonResult;
+  if (jsonResult) return normalizeDeliveryResult(jsonResult);
 
-  const codeBlockRegex = /```(?:typescript|tsx|ts|jsx|js|html|css|json)?\s*\n?([\s\S]*?)```/g;
+  const codeBlockRegex = /```(?:typescript|tsx|ts|jsx|js|html|css|vue|scss|less|json)?\s*\n?([\s\S]*?)```/g;
   const files: Record<string, string> = {};
   let match;
   let fileIndex = 1;
@@ -447,18 +447,34 @@ function parseDeliveryResult(text: string): DeliveryResult {
   while ((match = codeBlockRegex.exec(text)) !== null) {
     const code = match[1].trim();
     if (!code) continue;
-    const filename = extractFilename(code) || `generated_${fileIndex}.tsx`;
-    files[filename] = code;
+    const normalizedCode = normalizeEscapedCode(code);
+    const filename = extractFilename(normalizedCode) || getDefaultGeneratedFilename(fileIndex, normalizedCode);
+    files[filename] = normalizedCode;
     fileIndex++;
   }
 
-  return {
+  return normalizeDeliveryResult({
     code: files,
     instructions: extractSection(text, '使用说明') || extractSection(text, 'instructions') || '',
     routes: extractSection(text, '路由说明') || extractSection(text, 'routes') || '',
     deployment: extractSection(text, '部署步骤') || extractSection(text, 'deployment') || '',
     qualityReport: extractSection(text, '质检报告') || extractSection(text, 'qualityReport') || '',
-  };
+  });
+}
+
+function getDefaultGeneratedFilename(index: number, code = '') {
+  const ext = inferExtensionFromCode(code);
+  return index === 1 ? `generated.${ext}` : `generated_${index}.${ext}`;
+}
+
+function inferExtensionFromCode(code: string): string {
+  const trimmed = code.trimStart().toLowerCase();
+  if (trimmed.startsWith('<template') || trimmed.includes('</template>')) return 'vue';
+  if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.includes('</html>')) return 'html';
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json';
+  if (trimmed.includes('function ') || trimmed.includes('const ') || trimmed.includes('document.')) return 'js';
+  if (trimmed.includes('{') && trimmed.includes(':') && trimmed.includes(';')) return 'css';
+  return 'txt';
 }
 
 function tryParseJSON(text: string): DeliveryResult | null {
@@ -470,7 +486,7 @@ function tryParseJSON(text: string): DeliveryResult | null {
       const parsed = JSON.parse(match[1].trim()) as DeliveryResultJSON;
       if (isValidDeliveryResult(parsed)) {
         return {
-          code: parsed.code ?? {},
+          code: normalizeCodeMap(parsed.code),
           instructions: parsed.instructions ?? '',
           routes: parsed.routes ?? '',
           deployment: parsed.deployment ?? '',
@@ -487,7 +503,7 @@ function tryParseJSON(text: string): DeliveryResult | null {
       const parsed = JSON.parse(objMatch[0]) as DeliveryResultJSON;
       if (isValidDeliveryResult(parsed)) {
         return {
-          code: parsed.code ?? {},
+          code: normalizeCodeMap(parsed.code),
           instructions: parsed.instructions ?? '',
           routes: parsed.routes ?? '',
           deployment: parsed.deployment ?? '',
@@ -502,6 +518,58 @@ function tryParseJSON(text: string): DeliveryResult | null {
 
 function isValidDeliveryResult(obj: unknown): obj is DeliveryResultJSON {
   return typeof obj === 'object' && obj !== null && Object.keys(obj).length > 0;
+}
+
+function normalizeDeliveryResult(result: DeliveryResult): DeliveryResult {
+  return {
+    ...result,
+    code: normalizeCodeMap(result.code),
+  };
+}
+
+function normalizeCodeMap(code?: Record<string, string>): Record<string, string> {
+  if (!code) return {};
+  return Object.fromEntries(
+    Object.entries(code).map(([filename, content], index) => {
+      const normalizedCode = normalizeEscapedCode(String(content));
+      const normalizedFilename = normalizeGeneratedFilename(filename, normalizedCode, index + 1);
+      return [normalizedFilename, normalizedCode];
+    })
+  );
+}
+
+function normalizeGeneratedFilename(filename: string, code: string, index: number): string {
+  if (!filename.endsWith('.txt') || !filename.startsWith('generated_')) {
+    return filename;
+  }
+  return getDefaultGeneratedFilename(index, code);
+}
+
+function normalizeEscapedCode(code: string): string {
+  let value = code.trim();
+
+  if (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+  ) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      value = value.slice(1, -1);
+    }
+  }
+
+  if (!value.includes('\\n') && !value.includes('\\"') && !value.includes('\\t')) {
+    return value;
+  }
+
+  return value
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'")
+    .trim();
 }
 
 function extractSection(text: string, section: string): string {

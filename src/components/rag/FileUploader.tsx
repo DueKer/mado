@@ -21,7 +21,9 @@ interface UploadState {
   content?: string;
 }
 
-export function FileUploader({ onUpload, maxSize = 10 * 1024 * 1024, accept = '.txt,.md,.ts,.tsx,.js,.jsx' }: FileUploaderProps) {
+const SUPPORTED_EXTENSIONS = /\.(txt|md|ts|tsx|js|jsx|vue|html|css|less|scss|json)$/i;
+
+export function FileUploader({ onUpload, maxSize = 10 * 1024 * 1024, accept = '.txt,.md,.ts,.tsx,.js,.jsx,.vue,.html,.css,.less,.scss,.json' }: FileUploaderProps) {
   const [uploads, setUploads] = React.useState<UploadState[]>([]);
   const [isDragging, setIsDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -39,8 +41,8 @@ export function FileUploader({ onUpload, maxSize = 10 * 1024 * 1024, accept = '.
       return;
     }
 
-    if (!['text/plain', 'text/markdown', 'text/x.typescript', 'text/javascript', 'application/octet-stream'].includes(file.type)
-        && !file.name.match(/\.(txt|md|ts|tsx|js|jsx)$/i)) {
+    if (!['text/plain', 'text/markdown', 'text/x.typescript', 'text/javascript', 'text/html', 'text/css', 'application/json', 'application/octet-stream'].includes(file.type)
+        && !file.name.match(SUPPORTED_EXTENSIONS)) {
       setUploads(prev => [...prev, {
         id: generateId(),
         name: file.name,
@@ -124,7 +126,7 @@ export function FileUploader({ onUpload, maxSize = 10 * 1024 * 1024, accept = '.
       >
         <Upload className="w-8 h-8 text-[#86909C] mx-auto mb-2" />
         <p className="text-sm text-[#1D2129]">拖拽文件到此处，或点击上传</p>
-        <p className="text-xs text-[#86909C] mt-1">支持 txt/md/ts/tsx/js/jsx，单个文件建议不超过10MB</p>
+        <p className="text-xs text-[#86909C] mt-1">支持 txt/md/ts/tsx/js/jsx/vue/html/css/less/scss/json，单个文件建议不超过10MB</p>
         <input
           ref={inputRef}
           type="file"
