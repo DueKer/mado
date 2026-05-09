@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Zap, Play, Pause, Square, RotateCcw, FileText, List, Layers3 } from 'lucide-react';
+import { Zap, Play, Pause, Square, RotateCcw, FileText, List, Layers3, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,6 +29,7 @@ import type { PipelineConfig } from '@/components/pipeline/PipelineEditor';
 import { ToolApprovalDialog, useToolApproval } from '@/components/tools/ToolApprovalDialog';
 import type { OrchestratorConfig } from '@/lib/orchestrator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
+import type { RagQueryResult } from '@/types';
 
 // ============================================================
 // 首页内容组件
@@ -87,6 +88,39 @@ function HomeContent() {
       count + (state.tasksById[taskId]?.isRunning ? 1 : 0)
     ), 0)
   ), [state.taskOrder, state.tasksById]);
+  const [ragPreview, setRagPreview] = React.useState<RagQueryResult[]>([]);
+
+  React.useEffect(() => {
+    const query = requirement.trim();
+    if (query.length < 4 || documents.length === 0) {
+      setRagPreview([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch('/api/rag/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, agentId: 'generator', topK: 3 }),
+        signal: controller.signal,
+      })
+        .then(async response => {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error ?? 'RAG 预览失败');
+          setRagPreview(data.documents ?? []);
+        })
+        .catch(error => {
+          if (error instanceof Error && error.name === 'AbortError') return;
+          setRagPreview([]);
+        });
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [documents.length, requirement]);
 
   React.useEffect(() => {
     if (!state.activeTaskId) return;
@@ -387,6 +421,37 @@ function HomeContent() {
                   ))}
                 </div>
               </div>
+
+              {documents.length > 0 && (
+                <div className="rounded-lg border border-[#E5E6EB] bg-white p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-[#1D2129]">
+                      <Search className="w-4 h-4 text-[#165DFF]" />
+                      RAG 命中预览
+                    </div>
+                    <span className="text-xs text-[#86909C]">
+                      {ragPreview.length > 0 ? `预计引用 ${ragPreview.length} 条` : '暂无命中'}
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {ragPreview.length > 0 ? ragPreview.map((item, index) => (
+                      <div key={`${item.slice.id}_${index}`} className="rounded bg-[#F7F8FA] px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-xs font-medium text-[#1D2129]">
+                            {item.doc.name} · 切片 {item.slice.index + 1}
+                          </p>
+                          <span className="shrink-0 text-[11px] text-[#165DFF]">{item.score.toFixed(2)}</span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 font-mono text-xs text-[#64748B]">{item.slice.content}</p>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-[#86909C]">
+                        输入更具体的需求后，会显示本次多 Agent 预计使用的知识库内容。
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="space-y-2">

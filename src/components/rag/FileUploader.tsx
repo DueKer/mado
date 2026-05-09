@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { cn, formatFileSize, generateId } from '@/lib/utils';
-import type { RagDocument, RagSlice } from '@/types';
+import { createSlices } from '@/lib/rag/slicing';
+import type { RagDocument } from '@/types';
 
 interface FileUploaderProps {
   onUpload: (doc: RagDocument) => void;
@@ -173,56 +174,4 @@ export function FileUploader({ onUpload, maxSize = 10 * 1024 * 1024, accept = '.
       )}
     </div>
   );
-}
-
-// -------------------- 切片逻辑 --------------------
-
-export function createSlices(content: string, docId: string): RagSlice[] {
-  const slices: RagSlice[] = [];
-  const lines = content.split('\n');
-  let currentSlice = '';
-  let sliceIndex = 0;
-
-  for (const line of lines) {
-    // 代码块或标题作为自然切分点
-    const isCodeBlock = line.trim().startsWith('```') || line.trim().startsWith('import ') || line.trim().startsWith('export ');
-    const isHeading = /^#+\s/.test(line.trim()) || /^interface\s/.test(line.trim()) || /^type\s/.test(line.trim());
-    const isLong = currentSlice.length > 500;
-
-    if ((isCodeBlock || isHeading || isLong) && currentSlice.trim()) {
-      const keywords = extractSliceKeywords(currentSlice);
-      slices.push({
-        id: `${docId}_${sliceIndex}`,
-        docId,
-        content: currentSlice.trim(),
-        keywords,
-        index: sliceIndex,
-      });
-      sliceIndex++;
-      currentSlice = '';
-    }
-    currentSlice += line + '\n';
-  }
-
-  // 剩余内容
-  if (currentSlice.trim()) {
-    slices.push({
-      id: `${docId}_${sliceIndex}`,
-      docId,
-      content: currentSlice.trim(),
-      keywords: extractSliceKeywords(currentSlice),
-      index: sliceIndex,
-    });
-  }
-
-  return slices;
-}
-
-function extractSliceKeywords(text: string): string[] {
-  const stopWords = new Set(['的', '了', '和', '是', '在', '我', '这', '不', 'the', 'a', 'an', 'is', 'are']);
-  return text
-    .replace(/[^\w\u4e00-\u9fa5]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !stopWords.has(w.toLowerCase()))
-    .slice(0, 10);
 }

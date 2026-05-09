@@ -90,7 +90,6 @@ function computeBM25(
   for (const doc of docs) {
     let score = 0;
     const docLen = doc.slice.content.length;
-    const lowerContent = doc.slice.content.toLowerCase();
 
     for (const term of queryTerms) {
       const tf = doc.termFreqs.get(term.toLowerCase()) ?? 0;
@@ -141,16 +140,15 @@ export function ragSearch(
   config: RagMiddlewareConfig = {}
 ): RagQueryResult[] {
   const cfg = { ...DEFAULT_CONFIG, ...config };
-  const { topK, maxTokensPerSlice, enableQueryExpansion, enableBM25 } = cfg;
+  const { topK, maxTokensPerSlice, enableBM25 } = cfg;
 
   if (documents.length === 0) return [];
 
-  // Step 1: Query 扩展
-  const queryTerms = expandQuery(query);
   const originalTerms = query
     .replace(/[^\w\u4e00-\u9fa5]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 1);
+  const queryTerms = cfg.enableQueryExpansion ? expandQuery(query) : originalTerms;
 
   // Step 2: 构建文档集
   const docs: BM25Doc[] = [];
@@ -172,7 +170,7 @@ export function ragSearch(
   }
 
   // Step 3: BM25 评分（如果启用）
-  let scoredDocs: Array<{ doc: BM25Doc; score: number }> = [];
+  const scoredDocs: Array<{ doc: BM25Doc; score: number }> = [];
 
   if (enableBM25 && docs.length > 0) {
     const bm25Scores = computeBM25(queryTerms, docs);

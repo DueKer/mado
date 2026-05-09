@@ -110,6 +110,19 @@ export async function PATCH(request: NextRequest) {
       const existing = await db.select().from(ragDocuments).where(eq(ragDocuments.id, body.id)).limit(1);
       if (existing.length > 0) {
         await db.update(ragDocuments).set(updates).where(eq(ragDocuments.id, body.id));
+
+        if (body.slices !== undefined) {
+          await db.delete(documentChunks).where(eq(documentChunks.docId, body.id));
+          for (const slice of body.slices) {
+            await db.insert(documentChunks).values({
+              id: slice.id,
+              docId: body.id,
+              content: slice.content,
+              keywords: JSON.stringify(slice.keywords ?? []),
+              index: slice.index,
+            });
+          }
+        }
       }
     }
 
