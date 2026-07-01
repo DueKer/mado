@@ -40,7 +40,7 @@ export interface AppConfig {
     groq?: string;
     siliconflow?: string;
   };
-  /** 自定义 OpenAI 兼容 API 地址，如 https://www.msutools.cn/v1 */
+  /** 自定义 OpenAI 兼容 API 地址，如 https://www.codex2api.com/v1 */
   baseUrl?: string;
   /** 自定义 GPT 模型名，如 gpt-5.4-mini */
   gptModel?: string;

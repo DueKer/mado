@@ -188,7 +188,7 @@ export function ApiConfigDialog({ open, onOpenChange, config, onSave }: ApiConfi
               placeholder="https://api.openai.com/v1（留空则使用默认）"
               className="text-xs"
             />
-            <p className="text-xs text-[#86909C] mt-1">如使用中转代理（如 msutools.cn），填入完整 base URL</p>
+            <p className="text-xs text-[#86909C] mt-1">如使用中转代理（如 codex2api.com），填入完整 base URL</p>
           </div>
 
           {/* GPT Model */}

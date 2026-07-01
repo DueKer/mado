@@ -2,11 +2,10 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Zap, Play, Pause, Square, RotateCcw, FileText, List, Layers3, Search } from 'lucide-react';
+import { Zap, Play, Pause, Square, RotateCcw, FileText, List, Layers3, Search, PanelRightOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
 import { Navbar } from '@/components/layout/Navbar';
 import { AgentPanel } from '@/components/agents/AgentPanel';
 import { LogPanel } from '@/components/agents/LogPanel';
@@ -81,6 +80,7 @@ function HomeContent() {
   const [uploadedFiles, setUploadedFiles] = React.useState<FileUpload[]>([]);
   const [agentPanelCollapsed, setAgentPanelCollapsed] = React.useState(false);
   const [logDialogOpen, setLogDialogOpen] = React.useState(false);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
   const [showResult, setShowResult] = React.useState(false);
   const [hasLoadedRerun, setHasLoadedRerun] = React.useState(false);
   const runningTaskCount = React.useMemo(() => (
@@ -278,6 +278,7 @@ function HomeContent() {
       orchestratorConfig
     );
 
+    setPreviewOpen(true);
     addToast('info', '多Agent协同任务已启动');
   };
 
@@ -292,6 +293,7 @@ function HomeContent() {
     }
     setRequirement('');
     setUploadedFiles([]);
+    setPreviewOpen(false);
     setShowResult(false);
     addToast('info', '已重置');
   };
@@ -552,39 +554,31 @@ function HomeContent() {
                   免费无限制，无需付费解锁
                 </p>
                 <div className="flex justify-center">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setLogDialogOpen(true)}
-                  >
-                    <List className="w-3.5 h-3.5" />
-                    查看执行日志
-                    {logEntries.length > 0 && (
-                      <span className="text-xs text-[#86909C]">({logEntries.length})</span>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewOpen(true)}
+                    >
+                      <PanelRightOpen className="w-3.5 h-3.5" />
+                      打开实时预览
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogDialogOpen(true)}
+                    >
+                      <List className="w-3.5 h-3.5" />
+                      查看执行日志
+                      {logEntries.length > 0 && (
+                        <span className="text-xs text-[#86909C]">({logEntries.length})</span>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              {/* Streaming Result Preview */}
-              {(state.streamBuffer || state.isRunning) && (
-                <div>
-                  <label className="text-sm font-medium text-[#1D2129] mb-2 block">实时预览</label>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="max-h-[400px] overflow-y-auto">
-                        {state.streamBuffer ? (
-                          <MarkdownRenderer>{state.streamBuffer}</MarkdownRenderer>
-                        ) : (
-                          <p className="text-xs text-[#86909C]">正在生成中...</p>
-                        )}
-                        {state.isRunning && <span className="animate-pulse text-[#165DFF]"> ▊</span>}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
 
               {/* Final Result */}
               {showResult && state.result && (
@@ -646,6 +640,70 @@ function HomeContent() {
 
         </div>
       </div>
+
+      {/* Fixed Preview Drawer */}
+      {!previewOpen && (state.streamBuffer || state.isRunning || state.result) && (
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          className="fixed right-4 top-[88px] z-40 flex items-center gap-2 rounded-lg border border-[#165DFF]/30 bg-white px-3 py-2 text-sm font-medium text-[#165DFF] shadow-lg transition-colors hover:bg-[#E8F3FF]"
+        >
+          <PanelRightOpen className="h-4 w-4" />
+          实时预览
+          {state.isRunning && <span className="h-2 w-2 rounded-full bg-[#36D399] animate-pulse" />}
+        </button>
+      )}
+
+      {previewOpen && (
+        <aside className="fixed right-0 top-[60px] bottom-0 z-40 w-[min(460px,calc(100vw-20px))] border-l border-[#E5E6EB] bg-white shadow-2xl">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#E5E6EB] px-4">
+              <div>
+                <p className="text-sm font-semibold text-[#1D2129]">实时预览</p>
+                <p className="text-xs text-[#86909C]">
+                  {state.isRunning ? '生成中，随 Agent 输出实时更新' : '当前线程的最新输出'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                className="rounded p-1.5 text-[#86909C] transition-colors hover:bg-[#F5F7FA] hover:text-[#1D2129]"
+                title="关闭实时预览"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-b border-[#E5E6EB] bg-[#F7F8FA] px-4 py-2">
+              <span className="truncate text-xs text-[#64748B]">
+                {state.activeTaskId && state.tasksById[state.activeTaskId]
+                  ? state.tasksById[state.activeTaskId].name
+                  : '暂无任务'}
+              </span>
+              <span className={cn(
+                'shrink-0 rounded px-1.5 py-0.5 text-[11px]',
+                state.isRunning ? 'bg-[#165DFF]/10 text-[#165DFF]' : 'bg-[#36D399]/10 text-[#36D399]'
+              )}>
+                {state.isRunning ? '执行中' : '已停止'}
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {state.streamBuffer ? (
+                <MarkdownRenderer>{state.streamBuffer}</MarkdownRenderer>
+              ) : state.result ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-[#1D2129]">任务已生成交付结果</p>
+                  <p className="text-xs text-[#64748B]">完整代码和说明在主内容区的“交付结果”中查看。</p>
+                </div>
+              ) : (
+                <p className="text-xs text-[#86909C]">启动任务后，这里会显示流式输出。</p>
+              )}
+              {state.isRunning && <span className="animate-pulse text-[#165DFF]"> ▊</span>}
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Log Dialog */}
       <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
