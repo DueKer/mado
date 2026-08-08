@@ -4,10 +4,10 @@
 // ============================================================
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:8000';
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000';
 
 export const WS_BASE_URL =
-  process.env.NEXT_PUBLIC_WS_BASE_URL?.replace(/\/$/, '') ?? 'ws://localhost:8000';
+  process.env.NEXT_PUBLIC_WS_BASE_URL?.replace(/\/$/, '') ?? 'ws://127.0.0.1:8000';
 
 /** 拼接后端 REST 接口地址，例如 apiUrl('/api/db/tasks') -> http://localhost:8000/api/db/tasks */
 export function apiUrl(path: string): string {
