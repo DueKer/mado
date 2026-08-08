@@ -7,6 +7,9 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+# pnpm global store + stale venv backup (huge dependency caches)
+/.pnpm-store/
+/backend/.venv-py39-backup/
 
 # testing
 /coverage
