@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# env files - do NOT commit real .env files with secrets
+.env
+.env.*.local
+
+# database
+data/*.db
+data/*.db-journal
+
+# logs
+*.log

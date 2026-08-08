@@ -3,7 +3,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-16-black" alt="Next.js">
   <img src="https://img.shields.io/badge/React-19-blue" alt="React">
-  <img src="https://img.shields.io/badge/TypeScript-5-green" alt="TypeScript">
+  <img src="https://img.shields.io/badge/FastAPI-Python-teal" alt="FastAPI">
+  <img src="https://img.shields.io/badge/LangGraph-Agent%20Orchestration-purple" alt="LangGraph">
   <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License">
 </p>
 
@@ -81,17 +82,28 @@
 
 ## 技术栈
 
+项目采用前后端分离架构：`frontend/`（Next.js UI）+ `backend/`（FastAPI + LangGraph 编排/AI/RAG/数据库），两者独立部署，通过 HTTP + WebSocket 通信。
+
+### 前端（`frontend/`）
+
 | 分类 | 技术 | 说明 |
 |------|------|------|
-| **框架** | Next.js 16 | App Router 服务端渲染 |
+| **框架** | Next.js 16 | App Router，纯前端渲染，不含服务端 API 逻辑 |
 | **UI** | React 19 + Tailwind CSS v4 | 现代化响应式界面 |
 | **组件库** | Radix UI | 无障碍、可访问的 UI 组件 |
-| **AI 服务** | Vercel AI SDK | 支持 OpenAI GPT、Anthropic Claude |
-| **免费模型** | Groq / 硅基流动 | 免费 LLM API（需翻墙） |
-| **数据库** | Drizzle ORM + libSQL | SQLite 本地存储，支持 Turso 云数据库 |
 | **代码编辑** | CodeMirror 6 | 语法高亮、代码块渲染 |
 | **语言** | TypeScript 5 | 类型安全 |
 | **图标** | Lucide React | 现代化图标库 |
+
+### 后端（`backend/`）
+
+| 分类 | 技术 | 说明 |
+|------|------|------|
+| **框架** | FastAPI | REST API + WebSocket |
+| **编排引擎** | LangGraph | 多 Agent 状态图编排、工具审批中断 |
+| **AI 调用** | LangChain (langchain-openai / langchain-anthropic) | 统一 OpenAI/Anthropic/Groq/硅基流动接口 |
+| **数据库** | SQLAlchemy + SQLite | ORM + 本地文件数据库 |
+| **语言** | Python 3.11+ | 类型注解 |
 
 ---
 
@@ -99,20 +111,38 @@
 
 ### 环境要求
 
-- Node.js 18+
-- npm / yarn / pnpm
+- Node.js 18+（前端）
+- Python 3.11+（后端）
 - AI API Key（至少一个）：
   - OpenAI API Key
   - Anthropic API Key
   - Groq API Key（免费）
   - 硅基流动 API Key（免费）
 
-### 安装
+### 1. 启动后端
 
 ```bash
-# 克隆项目
-git clone https://github.com/DueKer/mado.git
-cd mado
+cd backend
+
+# 创建虚拟环境并安装依赖
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env，至少填入一个 API Key
+
+# 启动 FastAPI 服务（默认 8000 端口）
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+后端启动后会自动初始化 SQLite 数据库（`backend/data/mado.db`）。
+
+### 2. 启动前端
+
+```bash
+cd frontend
 
 # 安装依赖
 npm install
@@ -121,20 +151,12 @@ npm install
 cp .env.example .env.local
 ```
 
-### 配置
-
-编辑 `.env.local`：
+编辑 `frontend/.env.local`，指向后端地址（默认已配置本地开发地址，无需修改）：
 
 ```env
-# 至少配置一个 API Key
-ANTHROPIC_API_KEY=sk-ant-xxx
-OPENAI_API_KEY=sk-xxx
-
-# 数据库（可选，默认使用本地 SQLite）
-DATABASE_URL=file:./data/mado.db
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
 ```
-
-### 运行
 
 ```bash
 npm run dev
@@ -142,14 +164,7 @@ npm run dev
 
 访问 [http://localhost:3000](http://localhost:3000)
 
-### 数据库命令
-
-```bash
-npm run db:generate  # 生成数据库迁移文件
-npm run db:migrate   # 执行数据库迁移
-npm run db:push     # 推送 schema 到数据库
-npm run db:studio   # 打开 Drizzle Studio 可视化数据库
-```
+> 前端和后端是两个独立进程，需要分别启动。两者可以部署在不同机器 / 容器上，只要前端的 `NEXT_PUBLIC_API_BASE_URL` / `NEXT_PUBLIC_WS_BASE_URL` 指向正确的后端地址即可。
 
 ---
 
@@ -233,57 +248,63 @@ Agent 执行时会自动检索相关文档，结合上下文进行开发。
 ## 项目结构
 
 ```
-src/
-├── app/                          # Next.js App Router 页面
-│   ├── page.tsx                  # 首页 - AI 对话与任务执行
-│   ├── layout.tsx                # 根布局
-│   ├── api/                      # API 路由
-│   │   └── ai/                   # AI 流式接口
-│   ├── agent-manage/             # Agent 管理页面
-│   ├── rag-knowledge/            # RAG 知识库页面
-│   ├── history-task/             # 任务历史页面
-│   └── setting-help/            # 设置与帮助页面
+mado/
+├── frontend/                      # Next.js 前端（仅 UI，不含服务端逻辑）
+│   └── src/
+│       ├── app/                   # App Router 页面
+│       │   ├── page.tsx           # 首页 - AI 对话与任务执行
+│       │   ├── layout.tsx         # 根布局
+│       │   ├── agent-manage/      # Agent 管理页面
+│       │   ├── rag-knowledge/     # RAG 知识库页面
+│       │   ├── history-task/      # 任务历史页面
+│       │   └── setting-help/      # 设置与帮助页面
+│       │
+│       ├── components/            # React 组件
+│       │   ├── agents/            # AgentPanel / LogPanel
+│       │   ├── editor/            # 代码块渲染、Markdown 渲染
+│       │   ├── rag/               # 文件上传
+│       │   ├── pipeline/          # Pipeline 可视化编辑器
+│       │   ├── tools/             # 工具审批对话框
+│       │   └── ui/                # 基础 UI 组件
+│       │
+│       ├── hooks/                 # React Hooks
+│       │   ├── useScheduler.ts    # 任务调度器（管理与后端的 WebSocket 连接）
+│       │   └── useStore.ts        # 全局状态（配置/知识库/历史，均通过 REST 调后端）
+│       │
+│       ├── lib/
+│       │   ├── api-config.ts      # 后端 API / WebSocket 地址拼接
+│       │   ├── agent-display.ts   # Agent 展示名称（纯 UI 元数据）
+│       │   ├── tools/tool-definitions.ts # 工具展示元数据（纯 UI）
+│       │   ├── constants.ts / utils.ts
+│       │   └── rag/slicing.ts     # 前端本地切片预览（上传前）
+│       │
+│       └── types/                 # TypeScript 类型定义
 │
-├── components/                    # React 组件
-│   ├── agents/                   # Agent 相关
-│   │   ├── AgentPanel.tsx       # Agent 状态面板
-│   │   └── LogPanel.tsx         # 执行日志面板
-│   ├── editor/                  # 代码编辑器
-│   │   ├── CodeBlock.tsx        # 代码块渲染
-│   │   ├── DeliveryCodeViewer.tsx # 交付代码查看器
-│   │   └── MarkdownRenderer.tsx # Markdown 渲染
-│   ├── rag/                     # RAG 相关
-│   │   └── FileUploader.tsx     # 文件上传
-│   ├── pipeline/                # Pipeline 配置
-│   │   └── PipelineEditor.tsx   # Pipeline 编辑器
-│   ├── tools/                   # 工具系统
-│   │   └── ToolApprovalDialog.tsx # 工具审批对话框
-│   └── ui/                      # 基础 UI 组件
-│       ├── button.tsx, input.tsx, dialog.tsx ...
-│
-├── hooks/                        # React Hooks
-│   ├── useScheduler.ts          # 任务调度器
-│   └── useStore.ts              # 状态管理
-│
-├── lib/                          # 核心库
-│   ├── agent-prompts.ts          # Agent 提示词定义
-│   ├── orchestrator.ts          # Agent 编排调度引擎
-│   ├── ai-sdk-service.ts        # AI SDK 服务封装
-│   ├── constants.ts             # 常量配置
-│   ├── utils.ts                 # 工具函数
-│   ├── tools/                   # 工具系统
-│   │   ├── tool-schema.ts       # 工具定义
-│   │   ├── builtin-tools.ts     # 内置工具
-│   │   └── tool-engine.ts       # 工具执行引擎
-│   ├── rag/                     # RAG 系统
-│   │   └── rag-middleware.ts    # RAG 中间件
-│   ├── memory/                  # 记忆系统
-│   │   └── context-compression.ts # 上下文压缩
-│   └── plugins/                  # 插件系统
-│       └── plugin-system.ts     # 插件注册与钩子
-│
-└── types/                        # TypeScript 类型定义
-    └── index.ts                 # 核心类型
+└── backend/                       # FastAPI 后端（DB / AI 调用 / RAG / Agent 编排）
+    ├── main.py                    # FastAPI 入口，注册路由 + CORS + DB 初始化
+    ├── requirements.txt
+    ├── .env                       # 后端环境变量（API Key、DB 地址等）
+    └── app/
+        ├── api/routes/
+        │   ├── tasks.py, config.py, rag_docs.py  # REST：任务/配置/知识库 CRUD
+        │   ├── rag_query.py       # REST：/api/rag/search、/api/rag/ask
+        │   └── orchestrator_ws.py # WebSocket：/ws/orchestrator 编排接口
+        ├── agents/
+        │   ├── state.py           # LangGraph State 定义
+        │   ├── graph.py           # StateGraph：planner→document→generator→quality→delivery
+        │   ├── prompts.py         # 各 Agent 的系统提示词
+        │   ├── context.py         # 上下文压缩
+        │   └── tool_loop.py       # 工具调用解析、执行、审批中断（interrupt）
+        ├── db/
+        │   ├── models.py          # SQLAlchemy 模型
+        │   └── session.py         # DB session / 初始化
+        ├── rag/
+        │   ├── loader.py          # 从 DB 加载知识库文档
+        │   └── middleware.py      # BM25 检索 + Agent 感知重排序
+        ├── services/
+        │   └── providers.py       # 统一 AI Provider 封装（OpenAI/Anthropic/Groq/硅基流动）
+        └── plugins/
+            └── registry.py        # 插件 Hook 系统
 ```
 
 ---
